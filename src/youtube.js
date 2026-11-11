@@ -1,10 +1,10 @@
+import { withCaptionProbe } from './caption-observer-client.js';
 import {
   findTranscriptPanelRequest,
   getCaptionTrackIdentity,
   resolveAlternatePlayerCaptionTrack,
   resolveSilentPanelTrackSelection,
-  selectCaptionTrackByIdentity,
-  shouldUseAlternatePlayerCaptionFallback
+  selectCaptionTrackByIdentity
 } from './silent-transcript.js';
 
 // YouTube requires a valid version for non-WEB player clients. This is an
@@ -138,7 +138,7 @@ export async function readVideoMetadata(tabId) {
  * @returns {Promise<{ok: boolean, status: number, body: string}>}
  */
 export async function fetchCaptionBodyFromPage(tabId, baseUrl, format) {
-  const results = await chrome.scripting.executeScript({
+  const results = await withCaptionProbe(tabId, () => chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
     args: [baseUrl, format],
@@ -149,7 +149,8 @@ export async function fetchCaptionBodyFromPage(tabId, baseUrl, format) {
 
         const response = await fetch(url.toString(), {
           credentials: 'include',
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: AbortSignal.timeout(15000)
         });
 
         return {
@@ -166,14 +167,14 @@ export async function fetchCaptionBodyFromPage(tabId, baseUrl, format) {
         };
       }
     }
-  });
+  }));
 
   return results?.[0]?.result || { ok: false, status: 0, body: '' };
 }
 
 /**
  * Ask YouTube's own player endpoint for an alternate copy of the current
- * caption-track metadata when the WEB timed-text URL is proof-token gated.
+ * caption-track metadata for the primary JSON3 acquisition route.
  * No page command or visible UI is executed. The result is usable only when
  * one alternate track has the exact selected vssId.
  *
@@ -189,17 +190,6 @@ export async function fetchAlternatePlayerCaptionFromPage(
   availableTracks,
   expectedVideoIdentity
 ) {
-  if (!shouldUseAlternatePlayerCaptionFallback(selectedTrack?.baseUrl)) {
-    return {
-      ok: false,
-      status: 0,
-      bodyBytes: 0,
-      trackCount: 0,
-      skipped: true,
-      errorCode: 'alternate-player-not-required'
-    };
-  }
-
   const selectedIdentity = getCaptionTrackIdentity(selectedTrack);
   if (!selectedIdentity) {
     return {
@@ -316,6 +306,7 @@ export async function fetchAlternatePlayerCaptionFromPage(
           method: 'POST',
           credentials: 'include',
           cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
           headers,
           body: JSON.stringify({
             context: { client },
@@ -661,6 +652,7 @@ export async function fetchSilentTranscriptPanelFromPage(
           method: 'POST',
           credentials: 'include',
           cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
           headers,
           body: JSON.stringify({ context, panelId, params })
         });
@@ -767,11 +759,12 @@ export async function readCurrentVideoIdentity(tabId) {
  * @param {number} tabId
  * @returns {Promise<{cues: Array, diagnostics: string[]}>}
  */
-export async function readRenderedTranscript(tabId) {
+export async function readRenderedTranscript(tabId, preserveOriginalText = false) {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
-    func: () => {
+    args: [preserveOriginalText],
+    func: (preserveOriginalText) => {
       const cleanText = (value) => String(value || '')
         .replace(/\u200b/g, '')
         .replace(/\n+/g, ' ')
@@ -810,7 +803,7 @@ export async function readRenderedTranscript(tabId) {
           return {
             startMs: parseTimestamp(timestamp),
             durationMs: 0,
-            text: cleanText(text)
+            text: preserveOriginalText ? text : cleanText(text)
           };
         })
         .filter((cue) => cue.text);
@@ -843,11 +836,12 @@ export async function readRenderedTranscript(tabId) {
  * @param {number} tabId
  * @returns {Promise<{cues: Array, diagnostics: string[]}>}
  */
-export async function readRenderedTranscriptV2(tabId) {
+export async function readRenderedTranscriptV2(tabId, preserveOriginalText = false) {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
-    func: () => {
+    args: [preserveOriginalText],
+    func: (preserveOriginalText) => {
       const TS_RE = /^\d{1,2}:\d{2}(?::\d{2})?$/;
 
       const cleanText = (value) => String(value || '')
@@ -1091,7 +1085,7 @@ export async function readRenderedTranscriptV2(tabId) {
         if (seen.has(key)) continue;
         seen.add(key);
 
-        cues.push({ startMs, durationMs: 0, text: body });
+        cues.push({ startMs, durationMs: 0, text: preserveOriginalText ? collectTextWithout(segmentRoot, excluded) : body });
       }
 
       return {

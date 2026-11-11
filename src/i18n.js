@@ -1,5 +1,5 @@
 /**
- * UI language handling for Transcript Sidecar.
+ * UI language handling for CC Sidecar.
  *
  * Scope: this module translates only the fixed wording the extension itself
  * renders. Video titles, video URLs, caption text, and YouTube-supplied caption
@@ -34,6 +34,7 @@ const MESSAGES = {
 
     'field.captions': '字幕',
 
+    'button.loadCaptions': '字幕を取得',
     'button.copyPlain': '全文をコピー',
     'button.copyReadable': '読みやすくコピー',
     'button.copyReadableHint': '内容は変えず、段落だけ整えます',
@@ -48,7 +49,8 @@ const MESSAGES = {
 
     'footer.headline': 'アカウント不要。トラッキングなし。外部字幕サーバーなし。',
     'footer.note': '字幕データは、この拡張機能から第三者サーバーへ送信しません。',
-    'footer.publisher': 'Tokumaru Labsによるオープンソースツール。',
+    'footer.publisher': 'naruo4によるオープンソースツール。',
+    'footer.upstream': '原作：Transcript Sidecar（Tokumaru Labs）',
 
     'toast.copiedPlain': '全文をコピーしました',
     'toast.copiedReadable': '読みやすい段落でコピーしました',
@@ -91,6 +93,7 @@ const MESSAGES = {
 
     'field.captions': 'Captions',
 
+    'button.loadCaptions': 'Get captions',
     'button.copyPlain': 'Copy full transcript',
     'button.copyReadable': 'Copy readable',
     'button.copyReadableHint': 'Keeps the wording and adds paragraph breaks',
@@ -105,7 +108,8 @@ const MESSAGES = {
 
     'footer.headline': 'No account. No tracking. No external server.',
     'footer.note': 'This extension never sends transcript data to a third-party server.',
-    'footer.publisher': 'An open-source tool by Tokumaru Labs.',
+    'footer.publisher': 'An open-source tool maintained by naruo4.',
+    'footer.upstream': 'Based on Transcript Sidecar by Tokumaru Labs',
 
     'toast.copiedPlain': 'Full transcript copied',
     'toast.copiedReadable': 'Copied as readable paragraphs',

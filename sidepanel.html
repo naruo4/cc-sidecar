@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Transcript Sidecar</title>
+  <title>CC Sidecar</title>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -11,7 +11,8 @@
     <header class="header">
       <div>
         <div class="brand-row">
-          <h1>Transcript Sidecar</h1>
+          <img class="brand-icon" src="icons/icon48.png" width="28" height="28" alt="" aria-hidden="true">
+          <h1>CC Sidecar</h1>
           <span class="privacy-badge">LOCAL</span>
         </div>
         <p class="subtitle" data-i18n="app.tagline">YouTube字幕を、すぐコピー。</p>
@@ -30,6 +31,15 @@
       <p id="statusText" data-i18n="status.idle">YouTube動画を開いて、拡張機能アイコンを押してください。</p>
     </section>
 
+    <section class="caption-diagnostic-card" aria-label="字幕取得診断">
+      <button id="runCaptionDiagnostics" class="secondary-button" type="button">字幕取得診断</button>
+      <p>動画ごとに診断し、比較TXTと詳細JSONを保存してください。全経路・0件の理由をまとめてLLMに渡せます。表示字幕はその瞬間のみ、DOMは開いている部分のみです。</p>
+      <p id="captionDiagnosticStatus" role="status" aria-live="polite"></p>
+      <button id="saveCaptionDiagnosticTxt" class="secondary-button" type="button" disabled>比較TXTを保存</button>
+      <button id="saveCaptionDiagnosticJson" class="secondary-button" type="button" disabled>詳細JSONを保存</button>
+      <div id="captionDiagnosticResults"></div>
+    </section>
+
     <details id="diagnostics" class="diagnostics" hidden>
       <summary data-i18n="diagnostics.summary">診断情報</summary>
       <pre id="diagnosticsList" class="diagnostics-list"></pre>
@@ -44,6 +54,7 @@
 
       <label class="field-label" for="trackSelect" data-i18n="field.captions">字幕</label>
       <select id="trackSelect" class="track-select"></select>
+      <button id="loadCaptionsButton" class="secondary-button" type="button" data-i18n="button.loadCaptions">字幕を取得</button>
 
       <button id="copyPlainButton" class="primary-button" type="button">
         <span class="button-icon">📋</span>
@@ -75,7 +86,8 @@
     <footer class="footer">
       <strong data-i18n="footer.headline">アカウント不要。トラッキングなし。外部字幕サーバーなし。</strong>
       <span data-i18n="footer.note">字幕データは、この拡張機能から第三者サーバーへ送信しません。</span>
-      <span class="publisher" data-i18n="footer.publisher">Tokumaru Labsによるオープンソースツール。</span>
+      <span class="publisher" data-i18n="footer.publisher">naruo4によるオープンソースツール。</span>
+      <a class="publisher" href="https://github.com/tokumaru-labs/transcript-sidecar" target="_blank" rel="noreferrer" data-i18n="footer.upstream">原作：Transcript Sidecar（Tokumaru Labs）</a>
     </footer>
   </main>
 

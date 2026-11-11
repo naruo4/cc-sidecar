@@ -1,0 +1,71 @@
+import { initializeCaptionDiagnosticUi } from '../src/diagnostic-ui.js';
+import { parseVttCaptionBody } from '../src/caption-parsers.js';
+import { extractDiagnosticSegments, makeDiagnosticRoute } from '../src/caption-diagnostics.js';
+const assert = (v, m) => { if (!v) throw new Error(m); };
+try {
+  assert(document.title === 'CC Sidecar' && document.querySelector('h1').textContent === 'CC Sidecar', 'fork name in panel');
+  assert(document.querySelector('footer').textContent.includes('naruo4'), 'fork publisher');
+  const upstream = document.querySelector('footer a');
+  assert(upstream?.href === 'https://github.com/tokumaru-labs/transcript-sidecar', 'original attribution link');
+  const icon = document.querySelector('.brand-icon');
+  for (let i = 0; i < 100 && !icon.complete; i++) await new Promise(r => setTimeout(r, 10));
+  assert(icon.naturalWidth === 48, 'CC icon loads at manifest size');
+  const xml = extractDiagnosticSegments('<timedtext><body><p t="1250" d="500"><s>ラデオン</s><s>を積んだ &amp; 次へ</s></p></body></timedtext>', 'srv3');
+  assert(xml[0].text === 'ラデオンを積んだ & 次へ' && xml[0].startMs === 1250, 'srv3 original text/time');
+  assert(extractDiagnosticSegments('<transcript><text start="1.5" dur="2"> a\n b </text></transcript>')[0].text === ' a\n b ', 'original XML whitespace');
+  const vtt = extractDiagnosticSegments('WEBVTT\n\n00:01.250 --> 00:03.500\nラデオン\nを積んだ', 'vtt');
+  assert(vtt[0].text === 'ラデオン\nを積んだ' && vtt[0].durationMs === 2250, 'VTT text/time');
+  const escapedVtt = 'WEBVTT\n\n00:01.000 --> 00:02.000\nA &gt; B &amp; C &lt; D &quot;日本語&quot;';
+  assert(parseVttCaptionBody(escapedVtt)[0].text === 'A > B & C < D "日本語"', 'VTT entity decoding in Chrome');
+  const entityRoute = makeDiagnosticRoute('vtt', { ok: true, status: 200, body: escapedVtt }, 'vtt');
+  assert(entityRoute.rawFullText.includes('&gt;') && entityRoute.formattedFullText.includes('A > B'), 'diagnostics retain VTT original and decoded text');
+  const track = { baseUrl: 'https://www.youtube.com/api/timedtext?v=video&lang=ja&kind=asr&signature=HIDDEN', languageCode: 'ja', kind: 'asr', vssId: 'a.ja', trackIdentity: 'a.ja' };
+  const body = JSON.stringify({ events: [{ tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: 'ラデオンを積んだ' }] }] });
+  let currentVideoId = 'video';
+  window.chrome = { runtime: { getManifest: () => ({ version: '0.5.0' }) }, tabs: { query: async () => [{ id: 1 }] }, scripting: { executeScript: async ({func, args = []}) => {
+    const code = func.toString();
+    if (code.includes('const hostname')) return [{ result: { isYouTubeVideo: true, videoIdentity: currentVideoId, title: '比較する動画', tracks: [track] } }];
+    if (code.includes('commandGroups')) return [{ result: { videoIdentity: currentVideoId, commandGroups: [] } }];
+    if (code.includes('const pathIdentity')) return [{ result: currentVideoId }];
+    if (code.includes('nativeTracks')) return [{ result: { resources: [], displayed: { startMs: 1000, text: 'ラデオンを積んだ' } } }];
+    if (typeof args[0] === 'string' && args[0].startsWith('https:')) return [{ result: { ok: true, status: 200, body } }];
+    return [{ result: { cues: [] } }];
+  } } };
+  const originalFetch = window.fetch;
+  window.fetch = async (url, options) => String(url).startsWith('https://www.youtube.com/api/timedtext')
+    ? new Response(body, { status: 200 }) : originalFetch(url, options);
+  const downloads = [];
+  URL.createObjectURL = blob => { downloads.push(blob); return 'blob:diagnostic-test'; };
+  document.addEventListener('click', e => { if (e.target.tagName === 'A') e.preventDefault(); });
+  initializeCaptionDiagnosticUi(() => ({ videoIdentity: 'video', trackIdentity: 'a.ja' }));
+  const button = document.getElementById('runCaptionDiagnostics');
+  button.click();
+  for (let i = 0; i < 100 && button.disabled; i++) await new Promise(r => setTimeout(r, 30));
+  assert(!button.disabled, 'UI diagnostic run completes');
+  const rows = document.querySelectorAll('.caption-diagnostic-row');
+  assert(rows.length === 20, 'all 20 route rows rendered: '+rows.length);
+  assert(!document.getElementById('saveCaptionDiagnosticJson').disabled, 'comparison export enabled');
+  document.getElementById('saveCaptionDiagnosticJson').click();
+  const report = JSON.parse(await downloads[0].text());
+  assert(report.routes.length === 20 && !JSON.stringify(report).includes('HIDDEN'), 'JSON blob download with no signed URL');
+  assert(rows[1].querySelector('button') === null, 'per-route downloads removed');
+  assert(!document.getElementById('saveCaptionDiagnosticTxt').disabled, 'consolidated TXT export enabled');
+  document.getElementById('saveCaptionDiagnosticTxt').click();
+  const txt = await downloads[1].text();
+  assert(txt.includes('ラデオンを積んだ') && txt.includes('[get-panel]') && txt.includes('[page-timedtext-json3]')
+    && txt.includes('reason: panel-request-metadata-unavailable') && txt.includes('videoTitle: "比較する動画"'), 'consolidated TXT has full text, metadata and zero-count reasons');
+  assert(report.videoTitle === '比較する動画' && report.extensionVersion === '0.5.0' && report.schemaVersion === 2, 'JSON collection metadata');
+  currentVideoId = 'second-video';
+  button.click();
+  assert(document.getElementById('saveCaptionDiagnosticTxt').disabled, 'old export disabled during next run');
+  for (let i = 0; i < 100 && button.disabled; i++) await new Promise(r => setTimeout(r, 30));
+  assert(!button.disabled && document.querySelectorAll('.caption-diagnostic-row').length === 20, 'second video run replaces previous rows');
+  document.getElementById('saveCaptionDiagnosticJson').click();
+  assert(JSON.parse(await downloads[2].text()).videoId === 'second-video', 'second video export is current');
+  assert(JSON.parse(await downloads[0].text()).videoId === 'video', 'first video export remains intact');
+  document.documentElement.dataset.test = 'PASS';
+  document.getElementById('browserCheck').textContent = 'PASS: browser XML/VTT parsing, two-video collection, consolidated TXT and JSON downloads';
+} catch (error) {
+  document.documentElement.dataset.test = 'FAIL';
+  document.getElementById('browserCheck').textContent = 'FAIL: '+error.message;
+}

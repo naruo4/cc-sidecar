@@ -28,6 +28,7 @@ export function initializeUi() {
     'videoTitle',
     'videoUrl',
     'trackSelect',
+    'loadCaptionsButton',
     'copyPlainButton',
     'copyReadableButton',
     'copyTimestampButton',

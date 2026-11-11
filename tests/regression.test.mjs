@@ -15,26 +15,15 @@ import {
 
 const root = new URL('../', import.meta.url);
 
-test('caption acquisition order keeps both timed-text routes first', async () => {
+test('normal acquisition uses observed player URL, alternate JSON3 then panel; other routes remain diagnostic-only', async () => {
   const source = await readFile(new URL('src/captions.js', root), 'utf8');
-  const start = source.indexOf('export async function loadCaptionTrack');
-  const acquisition = source.slice(start, source.indexOf('\nasync function ', start));
-
-  const extensionIndex = acquisition.indexOf('fetchTimedTextFromExtension');
-  const pageIndex = acquisition.indexOf('fetchTimedTextFromPage');
-  const silentIndex = acquisition.indexOf('fetchSilentTranscriptPanelFromPage');
-  const alternatePlayerIndex = acquisition.indexOf(
-    'fetchAlternatePlayerCaptionFromPage'
-  );
-  const legacyDomIndex = acquisition.indexOf('readRenderedTranscript(tabId)');
-  const modernDomIndex = acquisition.indexOf('readRenderedTranscriptV2(tabId)');
-
-  assert.ok(extensionIndex >= 0);
-  assert.ok(extensionIndex < pageIndex);
-  assert.ok(pageIndex < silentIndex);
-  assert.ok(silentIndex < alternatePlayerIndex);
-  assert.ok(alternatePlayerIndex < legacyDomIndex);
-  assert.ok(legacyDomIndex < modernDomIndex);
+  const acquisition = source.slice(source.indexOf('export async function loadCaptionTrack'));
+  assert.ok(acquisition.indexOf('await fetchObservedPlayerCaption') < acquisition.indexOf('await fetchAlternatePlayerCaptionFromPage'));
+  assert.ok(acquisition.indexOf('await fetchAlternatePlayerCaptionFromPage') < acquisition.indexOf('await fetchSilentTranscriptPanelFromPage'));
+  assert.match(acquisition, /fetchCaptionBodyFromPage\(tabId, alternateResult.baseUrl, 'json3'\)/);
+  assert.doesNotMatch(acquisition, /readRenderedTranscript|fetchTimedTextFromExtension|'srv3'|'vtt'/);
+  const diagnostics = await readFile(new URL('src/caption-diagnostics.js', root), 'utf8');
+  for (const route of ['extension-timedtext', 'page-timedtext', 'dom-legacy', 'dom-modern', 'player-observed-timedtext']) assert.ok(diagnostics.includes(route));
 });
 
 test('caption acquisition contains no automatic page clicks or expansion', async () => {
@@ -55,7 +44,7 @@ test('caption results fail closed across SPA identity changes', async () => {
   assert.match(appSource, /currentVideoIdentity !== expectedVideoIdentity/);
   assert.match(youtubeSource, /yt-navigate-start/);
   assert.match(youtubeSource, /video-context-changed/);
-  assert.match(captionsSource, /dom-fallback:skipped-unverifiable-track/);
+  assert.match(captionsSource, /alternateResult.errorCode === 'video-context-changed'/);
 });
 
 test('manifest permissions remain exactly scoped to YouTube Side Panel use', async () => {
@@ -63,13 +52,14 @@ test('manifest permissions remain exactly scoped to YouTube Side Panel use', asy
     await readFile(new URL('manifest.json', root), 'utf8')
   );
 
-  assert.deepEqual(manifest.permissions, ['scripting', 'sidePanel']);
+  assert.deepEqual(manifest.permissions, ['scripting', 'sidePanel', 'webRequest']);
   assert.deepEqual(manifest.host_permissions, [
     'https://www.youtube.com/*',
     'https://youtube.com/*',
     'https://m.youtube.com/*'
   ]);
-  assert.equal(manifest.version, '0.4.2');
+  assert.equal(manifest.background.type, 'module');
+  assert.equal(manifest.version, '0.5.0');
   assert.equal(manifest.default_locale, 'en');
   assert.equal(manifest.name, '__MSG_extensionName__');
   assert.equal(manifest.description, '__MSG_extensionDescription__');
@@ -83,8 +73,8 @@ test('English and Japanese store summaries are packaged and within limit', async
     await readFile(new URL('_locales/ja/messages.json', root), 'utf8')
   );
 
-  assert.equal(en.extensionName.message, 'Transcript Sidecar');
-  assert.equal(ja.extensionName.message, 'Transcript Sidecar');
+  assert.equal(en.extensionName.message, 'CC Sidecar');
+  assert.equal(ja.extensionName.message, 'CC Sidecar');
   assert.ok(en.extensionDescription.message.length <= 132);
   assert.ok(ja.extensionDescription.message.length <= 132);
   assert.match(en.extensionDescription.message, /Side Panel/);

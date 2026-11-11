@@ -1,6 +1,6 @@
 # Security Policy
 
-Transcript Sidecar is designed to be local-first and dependency-free.
+CC Sidecar is designed to be local-first and dependency-free.
 
 ## Reporting a security issue
 
@@ -19,3 +19,5 @@ Security-relevant reports include:
 - unsafe handling of YouTube page content
 
 The project intentionally does not include analytics, advertising SDKs, or third-party runtime JavaScript dependencies.
+
+This fork is maintained by [naruo4](https://github.com/naruo4), independently of the upstream publisher. Do not include signed caption URLs, cookies, authentication headers or private captions in public reports.

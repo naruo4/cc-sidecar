@@ -1,14 +1,14 @@
 {
   "extensionName": {
-    "message": "Transcript Sidecar"
+    "message": "CC Sidecar"
   },
   "extensionShortName": {
-    "message": "Sidecar"
+    "message": "CC Sidecar"
   },
   "extensionDescription": {
-    "message": "YouTubeの字幕をChromeサイドパネルで表示・コピー・保存。YouTube側の文字起こしパネルを開かず、説明欄をふさぎません。追跡・広告なし。"
+    "message": "YouTube字幕をサイドパネルで取得・コピー・保存。プレイヤーの字幕通信を利用し、視聴権限のあるメンバー限定動画も対象。経路別TXT/JSON比較に対応。"
   },
   "extensionActionTitle": {
-    "message": "Transcript Sidecarを開く"
+    "message": "CC Sidecarを開く"
   }
 }

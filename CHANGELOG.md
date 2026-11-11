@@ -1,3 +1,19 @@
+# CC Sidecar changelog
+
+## 0.5.0 — 2026-11-11
+
+- Fork maintained by naruo4, based on Transcript Sidecar 0.4.2 by Tokumaru Labs.
+- Rename the extension, action, panel and exports to CC Sidecar; add a CC icon badge.
+- Prefer exact player timedtext URLs observed by chrome.webRequest; replay in the logged-in page.
+- Keep signed URLs only in worker/tab RAM, with track/video checks, expiry and navigation cleanup.
+- Fall back to alternate-player JSON3, then get_panel; preserve existing copy/TXT/Markdown exports.
+- Decode VTT character references while retaining original text in diagnostics.
+- Compare all acquisition routes and export one comparison TXT and one detailed JSON per run.
+- Add public/members-only, worker restart, privacy, fallback and export regression tests.
+- Preserve the upstream GPL-3.0-only LICENSE and original authorship/history.
+
+## Upstream history (preserved)
+
 # Changelog
 
 ## 0.4.2 — 2026-08-22

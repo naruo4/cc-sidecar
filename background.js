@@ -1,3 +1,6 @@
+import { installCaptionRequestObserver } from './src/observed-captions.js';
+import { fetchObservedCaptionFromPage } from './src/observed-caption-page.js';
+
 'use strict';
 
 /**
@@ -11,3 +14,5 @@ chrome.sidePanel
   .catch((error) => {
     console.error('Failed to configure side panel behavior:', error);
   });
+
+installCaptionRequestObserver(chrome, fetchObservedCaptionFromPage);

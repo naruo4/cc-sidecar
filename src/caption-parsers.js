@@ -86,7 +86,7 @@ export function parseVttCaptionBody(body) {
 
     const startMs = parseVttTimestamp(timing[0]);
     const endMs = parseVttTimestamp(timing[1]);
-    const text = normalizeCaptionText(lines.slice(timingIndex + 1).join(' '));
+    const text = normalizeCaptionText(decodeVttEntities(lines.slice(timingIndex + 1).join(' ')));
 
     if (text) {
       cues.push({
@@ -129,4 +129,17 @@ function parseVttTimestamp(value) {
   }
 
   return 0;
+}
+
+// WebVTT named escapes plus common quote/numeric HTML references. Decode once:
+// &amp;gt; represents the literal text &gt;, not >. Never interpret text as HTML.
+export function decodeVttEntities(text) {
+  const named = { amp: '&', lt: '<', gt: '>', nbsp: '\u00a0',
+    lrm: '\u200e', rlm: '\u200f', quot: '"', apos: "'" };
+  return String(text).replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|nbsp|lrm|rlm|quot|apos);/gi, (entity, name) => {
+    if (!name.startsWith('#')) return named[name.toLowerCase()] ?? entity;
+    const point = /^#x/i.test(name) ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+    return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+      ? String.fromCodePoint(point) : entity;
+  });
 }

@@ -29,29 +29,10 @@ const otherTrack = {
   trackIdentity: '.ja'
 };
 
-const initialAcquisitionEvents = [
-  'fetch:extension:web:json3',
-  'fetch:extension:web:srv3',
-  'fetch:extension:web:vtt',
-  'fetch:extension:web:original',
-  'execute:page-timed-text:web:json3',
-  'fetch:page:web:json3',
-  'execute:page-timed-text:web:srv3',
-  'fetch:page:web:srv3',
-  'execute:page-timed-text:web:vtt',
-  'fetch:page:web:vtt',
-  'execute:page-timed-text:web:original',
-  'fetch:page:web:original',
-  'execute:silent-panel-metadata',
-  'execute:alternate-player',
-  'fetch:page:alternate-player'
-];
-
-const successfulAcquisitionEvents = [
-  ...initialAcquisitionEvents,
-  'execute:page-timed-text:alternate:json3',
-  'fetch:page:alternate:json3'
-];
+const initialAcquisitionEvents = ['execute:alternate-player', 'fetch:page:alternate-player'];
+const successfulAcquisitionEvents = [...initialAcquisitionEvents,
+  'execute:page-timed-text:alternate:json3', 'fetch:page:alternate:json3'];
+const panelEvents = ['execute:silent-panel-metadata', 'execute:get-panel', 'fetch:page:get-panel'];
 
 function makeResponse(status, body) {
   return {
@@ -104,7 +85,12 @@ async function runLoadScenario(mode) {
     removeEventListener: () => {},
     getElementById: (id) => (id === 'movie_player' ? player : null),
     querySelector: () => null,
-    querySelectorAll: () => []
+    querySelectorAll: () => mode === 'panel-metadata-failure' ? [] : [{ data: {
+      primaryButton: { buttonRenderer: { command: { commandExecutorCommand: { commands: [{
+        updateEngagementPanelContentCommand: { contentSourcePanelIdentifier: { tag: 'transcript' },
+          globalConfiguration: { params: 'test-panel-params' } }
+      }] } } } }
+    } }]
   };
 
   const pageContext = {
@@ -129,6 +115,7 @@ async function runLoadScenario(mode) {
 
     if (url.pathname === '/youtubei/v1/player') {
       events.push('fetch:page:alternate-player');
+      if (mode === 'player-network-failure') throw new TypeError('network failed');
       const request = JSON.parse(String(options.body || '{}'));
       const client = request?.context?.client || {};
       playerRequests.push({
@@ -187,6 +174,14 @@ async function runLoadScenario(mode) {
       return makeResponse(200, body);
     }
 
+    if (url.pathname === '/youtubei/v1/get_panel') {
+      events.push('fetch:page:get-panel');
+      if (mode === 'both-network-failure') throw new TypeError('panel network failed');
+      return makeResponse(mode === 'panel-http-failure' ? 503 : 200, JSON.stringify({
+        transcriptSegmentRenderer: { startMs: '0', endMs: '2000', snippet: { simpleText: 'Panel fallback cue' } }
+      }));
+    }
+
     if (url.pathname === '/api/timedtext') {
       const source = url.searchParams.get('source') || 'unknown';
       const format = url.searchParams.get('fmt') || 'original';
@@ -194,6 +189,11 @@ async function runLoadScenario(mode) {
       events.push(`fetch:${context}:${source}:${format}`);
 
       if (source === 'alternate' && format === 'json3') {
+        if (['caption-network-failure', 'both-network-failure'].includes(mode)) throw new TypeError('caption network failed');
+        if (mode === 'caption-timeout') throw Object.assign(new Error('timeout'), { name: 'TimeoutError' });
+        if (mode === 'malformed-json3') return makeResponse(200, '{invalid json');
+        if (mode === 'caption-http-failure') return makeResponse(403, 'denied');
+        if (['empty-json3', 'panel-http-failure', 'panel-metadata-failure'].includes(mode)) return makeResponse(200, '');
         return makeResponse(200, captionBody());
       }
 
@@ -211,10 +211,13 @@ async function runLoadScenario(mode) {
           return [{ result: { cues: [], diagnostics: [] } }];
         }
 
-        if (args.length === 1) {
+        if (args.length === 4) {
+          events.push('execute:get-panel');
+        } else if (args.length === 1) {
           events.push('execute:silent-panel-metadata');
         } else if (typeof args[1] === 'object') {
           events.push('execute:alternate-player');
+          if (mode === 'player-injection-failure') throw new Error('injection failed');
         } else {
           const url = new URL(args[0]);
           const source = url.searchParams.get('source') || 'unknown';
@@ -232,6 +235,16 @@ async function runLoadScenario(mode) {
       }
     }
   };
+
+  if (mode.startsWith('observed-')) chromeMock.runtime = { sendMessage: async message => {
+    if (message.type === 'caption-probe-start') return { token: 'probe' };
+    if (message.type === 'caption-probe-end') return { ok: true };
+    if (mode === 'observed-exception') throw new Error('https://youtube.com/?signature=PRIVATE_SIGNATURE');
+    if (mode === 'observed-malformed') return { ok: true, status: 200, body: '{invalid' };
+    if (mode === 'observed-empty') return { ok: true, status: 200, body: '' };
+    if (mode === 'observed-http-error') return { ok: false, status: 403, body: '' };
+    return { ok: false, errorCode: mode === 'observed-expired' ? 'observed-caption-url-expired' : 'observed-caption-url-unavailable' };
+  } };
 
   const replacements = {
     chrome: chromeMock,
@@ -254,7 +267,7 @@ async function runLoadScenario(mode) {
   try {
     const result = await loadCaptionTrack({
       tabId: 17,
-      track: selectedTrack,
+      track: mode === 'non-xpe' ? { ...selectedTrack, baseUrl: selectedTrack.baseUrl.replace('&exp=xpe', '') } : selectedTrack,
       availableTracks: [selectedTrack, otherTrack],
       expectedVideoIdentity: VIDEO_ID
     });
@@ -271,73 +284,46 @@ async function runLoadScenario(mode) {
   }
 }
 
-test('xpe fallback executes the real loadCaptionTrack alternate-player path', async (t) => {
-  await t.test('loads exact alternate captions with the compatibility profile', async () => {
-    const { events, playerRequests, result } = await runLoadScenario('success');
-
+test('normal acquisition executes alternate JSON3 first and falls back only to panel', async (t) => {
+  for (const mode of ['success', 'non-xpe']) await t.test(`${mode}: exact alternate JSON3 succeeds without panel or other formats`, async () => {
+    const { events, playerRequests, result } = await runLoadScenario(mode);
     assert.equal(result.method, 'alternate-player-timed-text');
     assert.equal(result.cues.length, 2);
-    assert.deepEqual(result.diagnostics.slice(0, 10), [
-      'extension:json3 HTTP 200 0B 0 cues',
-      'extension:srv3 HTTP 200 0B 0 cues',
-      'extension:vtt HTTP 200 0B 0 cues',
-      'extension:original HTTP 200 0B 0 cues',
-      'page:json3 HTTP 200 0B 0 cues',
-      'page:srv3 HTTP 200 0B 0 cues',
-      'page:vtt HTTP 200 0B 0 cues',
-      'page:original HTTP 200 0B 0 cues',
-      'silent-panel:metadata-unavailable HTTP 0 0B 0 cues',
-      'silent-panel:error transcript panel request metadata unavailable'
-    ]);
-    assert.equal(
-      result.diagnostics.some((line) => (
-        line.startsWith('alternate-player:ANDROID HTTP 200 ')
-        && line.endsWith('1 tracks')
-      )),
-      true
-    );
-    assert.equal(
-      result.diagnostics.some((line) => (
-        line.startsWith('alternate-player:json3 HTTP 200 ')
-        && line.endsWith('2 cues')
-      )),
-      true
-    );
-    assert.deepEqual(playerRequests, [{
-      clientName: 'ANDROID',
-      clientVersion: '21.26.364',
-      videoId: VIDEO_ID,
-      apiKey: 'test-page-api-key'
-    }]);
     assert.deepEqual(events, successfulAcquisitionEvents);
-    assert.equal(
-      events.filter((event) => event === 'fetch:page:alternate-player').length,
-      1
-    );
-    assert.equal(
-      events.filter((event) => event === 'fetch:page:alternate:json3').length,
-      1
-    );
+    assert.deepEqual(playerRequests, [{ clientName: 'ANDROID', clientVersion: '21.26.364', videoId: VIDEO_ID, apiKey: 'test-page-api-key' }]);
+    assert.ok(result.diagnostics.some(line => line.startsWith('alternate-player:json3 HTTP 200 ') && line.endsWith('2 cues')));
   });
-
-  for (const scenario of [
-    ['profile-failure', 'alternate player response unavailable'],
-    ['wrong-identity', 'alternate-track-identity-missing'],
-    ['duplicate-identity', 'alternate-track-identity-ambiguous'],
-    ['context-changed', 'video-context-changed']
-  ]) {
-    await t.test(`${scenario[0]} fails closed without a wrong-track DOM fallback`, async () => {
-      const { events, result } = await runLoadScenario(scenario[0]);
-
-      assert.equal(result.method, 'none');
-      assert.deepEqual(result.cues, []);
-      assert.deepEqual(events, initialAcquisitionEvents);
-      assert.equal(events.includes('execute:unexpected-dom-fallback'), false);
-      assert.equal(events.some((event) => event.includes(':alternate:')), false);
-      assert.equal(
-        result.diagnostics.some((line) => line.includes(scenario[1])),
-        true
-      );
-    });
-  }
+  for (const mode of ['observed-unavailable', 'observed-expired', 'observed-empty',
+    'observed-malformed', 'observed-http-error', 'observed-exception']) await t.test(`${mode}: existing alternate JSON3 fallback succeeds`, async () => {
+    const { events, result } = await runLoadScenario(mode);
+    assert.equal(result.method, 'alternate-player-timed-text');
+    assert.equal(result.cues.length, 2);
+    assert.deepEqual(events, successfulAcquisitionEvents);
+    assert.doesNotMatch(JSON.stringify(result.diagnostics), /PRIVATE_SIGNATURE/);
+  });
+  for (const mode of ['profile-failure', 'wrong-identity', 'duplicate-identity', 'empty-json3',
+    'malformed-json3', 'caption-http-failure', 'caption-network-failure', 'caption-timeout',
+    'player-network-failure', 'player-injection-failure']) await t.test(`${mode}: panel fallback succeeds`, async () => {
+    const { events, result } = await runLoadScenario(mode);
+    assert.equal(result.method, 'silent-panel-data');
+    assert.equal(result.cues[0].text, 'Panel fallback cue');
+    assert.deepEqual(events.slice(-3), panelEvents);
+    assert.equal(events[0], 'execute:alternate-player');
+    assert.ok(events.every(e => !e.includes(':web:') && !e.includes(':srv3') && !e.includes(':vtt') && !e.includes('dom')));
+    if (['wrong-identity', 'duplicate-identity'].includes(mode)) assert.ok(!events.includes('fetch:page:alternate:json3'));
+  });
+  for (const mode of ['panel-http-failure', 'panel-metadata-failure', 'both-network-failure']) await t.test(`${mode}: both routes unavailable returns no cues`, async () => {
+    const { events, result } = await runLoadScenario(mode);
+    assert.equal(result.method, 'none');
+    assert.deepEqual(result.cues, []);
+    assert.ok(events.includes('execute:silent-panel-metadata'));
+    assert.ok(!events.some(e => e.includes(':web:') || e.includes('dom')));
+  });
+  await t.test('context-changed: stops immediately without panel or wrong-video captions', async () => {
+    const { events, result } = await runLoadScenario('context-changed');
+    assert.equal(result.method, 'none');
+    assert.deepEqual(result.cues, []);
+    assert.deepEqual(events, initialAcquisitionEvents);
+    assert.ok(result.diagnostics.some(line => line.includes('video-context-changed')));
+  });
 });

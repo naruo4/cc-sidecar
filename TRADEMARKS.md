@@ -1,3 +1,15 @@
+# CC Sidecar branding
+
+CC Sidecar is an independent fork maintained by naruo4. Its CC-badged icon
+and publisher attribution distinguish it from the upstream project. References
+to Transcript Sidecar and Tokumaru Labs identify the original authors only;
+they do not state that this fork is their official release.
+
+YouTube is a third-party service. This fork does not claim affiliation with or
+endorsement by YouTube. The upstream trademark notice is preserved below.
+
+---
+
 # Trademark Policy
 
 The source code of Transcript Sidecar is licensed under the GNU General Public

@@ -449,3 +449,10 @@ h1 {
     --border: #dfe3e8;
   }
 }
+
+.caption-diagnostic-card { margin: 12px 0; padding: 12px; border: 1px solid var(--border, #8886); border-radius: 12px; }
+.caption-diagnostic-card p { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.caption-diagnostic-row { padding: 8px 0; border-top: 1px solid #8884; }
+
+
+.brand-icon { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0; }

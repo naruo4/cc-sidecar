@@ -1,58 +1,42 @@
-# Privacy Policy — Transcript Sidecar
+# Privacy Policy — CC Sidecar
 
-Last updated: 2026-08-19
+Updated: 2026-11-11 · Maintainer: [naruo4](https://github.com/naruo4) · Version: 0.5.0
 
-Transcript Sidecar is designed to provide its YouTube transcript feature without user accounts, analytics, advertising, tracking, or a developer-operated transcript-processing server.
+CC Sidecar is an independent fork of Transcript Sidecar by Tokumaru Labs. This policy describes this fork. It has no analytics, advertising, tracking, developer-operated transcript server or automatic external AI upload.
 
-## Information processed for the transcript feature
+## Data processed locally
 
-When the user opens or refreshes Transcript Sidecar on a supported YouTube video, the extension temporarily accesses and processes the following information in the user's browser:
+The extension reads the current supported YouTube video's identity, title, URL, available caption-track metadata and caption text to display, format, copy and export captions or seek playback. Opening or refreshing the Side Panel can initiate acquisition. The **Get captions** button retries acquisition for the selected track.
 
-- the current YouTube URL and video identity, to confirm that caption results belong to the video currently open in YouTube and to prevent stale results from a previous video;
-- the video title, available caption tracks and labels, YouTube-provided caption identifiers and request information, and relevant state from the current YouTube page;
-- the selected caption text and timing information; and
-- an already-open YouTube transcript panel's text and timestamps when that read-only fallback can be used safely.
+The background observer passively receives top-frame YouTube timedtext request URLs even when the Side Panel is closed. It does not request cookie access or collect authentication headers, request headers or response bodies from webRequest. URLs may contain signed/authentication parameters and are treated as secrets.
 
-This information is used only to acquire the current video's captions and provide the extension's disclosed features: displaying and formatting the transcript, seeking the current video from a selected timestamp, copying or exporting transcript text at the user's request, and showing local acquisition diagnostics.
+## Temporary URL retention
 
-## Local processing, storage, and browsing activity
+Observed caption URLs are held only in background-worker RAM and extension-private isolated-world RAM of the corresponding tab. They are never written to chrome.storage, localStorage, sessionStorage, IndexedDB, CacheStorage, DOM attributes, files or logs. Signed URLs are not included in comparison TXT/JSON files, sent to another tab, or returned to the panel; the panel receives caption text and sanitized result codes.
 
-The current YouTube URL, video identity, page information, caption metadata, and transcript are processed locally in the browser and held only in the extension's active in-memory state as needed to provide the current Side Panel session. Transcript Sidecar does not save this information as browsing history, a viewing profile, or an activity log. It does not transmit this information to Tokumaru Labs, a Tokumaru Labs-operated server, an analytics service, an advertising service, or a tracking service.
+At most 12 track entries are retained per tab, valid until the earlier of the URL's `expire` value or one hour after observation. Expired entries are removed when accessed. Video navigation, reload, pagehide and tab closure discard corresponding memory; failed HTTP/empty replays invalidate the URL. Worker restart can read a still-valid entry from that same tab's private RAM without persistence or a keepalive. Browser shutdown destroys this in-memory state.
 
-The extension stores only the user's Japanese or English interface-language preference in extension-local browser storage. That preference does not contain YouTube URLs, video identities, page information, or transcript content and is not transmitted to Tokumaru Labs.
+The observer does not poll, block or rewrite fetch/XHR. Sidecar's own page caption requests are excluded from observation while they run, so alternate/diagnostic requests do not replace the player's observed URL.
 
-Copy and TXT or Markdown export actions are initiated by the user. Clipboard content and exported files are created locally and remain under the user's browser and operating-system controls.
+## Communication with YouTube
 
-## Caption acquisition and YouTube communication
+Observed URLs are replayed unchanged in the logged-in YouTube page with `credentials: "include"`, `cache: "no-store"` and a timeout. The browser handles the existing page credentials; CC Sidecar does not extract or store cookies or authentication tokens separately. Video and unique selected-track checks run before and after replay. Unavailable observations fall back to alternate-player JSON3 and then get_panel.
 
-To retrieve captions, Transcript Sidecar necessarily communicates with YouTube-provided resources associated with the YouTube video currently open in the browser. This includes fetching a selected YouTube caption resource and, when silent caption acquisition is needed, requesting YouTube's transcript-panel data using request information and context already provided by the current YouTube page.
+This applies to public videos and members-only videos the current account can already access. It does not grant viewing rights. The extension communicates only with YouTube resources on its declared hosts, not with naruo4, Tokumaru Labs, analytics, advertising, external LLMs or transcript providers. YouTube is governed by its own terms and privacy policies.
 
-Silent caption acquisition uses only YouTube-provided resources on YouTube domains. It does not send the current YouTube URL, video identity, page information, caption metadata, or transcript text to Tokumaru Labs, a third-party transcript provider, an external AI service, or any other developer-operated service. Silent acquisition does not open, click, or reconfigure YouTube's visible transcript interface.
+## Stored preferences and user exports
 
-YouTube is a third-party service governed by its own terms and privacy policies. Communication with YouTube uses the secure HTTPS resources provided for the current YouTube page and video.
+Only the JP/EN interface preference is persistently stored, in extension-origin localStorage under the legacy `transcriptSidecar.uiLanguage` key. It contains no browsing history, video IDs, caption URLs, credentials or transcript text.
 
-## Formatting and diagnostics
+Clipboard, TXT, Markdown and comparison JSON outputs are created only at the user's request. They can contain video titles/IDs, selected language and caption text, including private captions. They remain under the user's control. No automatic LLM upload is performed. Users choose whether to share these files for analysis.
 
-Full-text, readable-paragraph, timestamped, TXT, and Markdown formatting is performed locally in the extension. The readable-paragraph feature uses local timing and text-length heuristics and does not send transcript text to an external AI service.
-
-Local diagnostics may show the acquisition method, status, counts, approximate response size, or an error message needed to explain a caption-loading result. Transcript Sidecar does not use diagnostics to log transcript text, build browsing history, or track the user, and it does not transmit diagnostics to Tokumaru Labs.
+Comparison files contain caption-only projections, timings, source methods, byte counts, coverage limitations and sanitized failure codes. Request context, cookies, signed URLs, API keys, visitor data and arbitrary browser error messages are excluded. URL/credential-like text inside captions is redacted in comparison outputs. Ordinary transcript copy/export preserves transcript content as selected by the user.
 
 ## Permissions
 
-- `scripting`: allows narrowly scoped code to run on supported YouTube pages to read the current URL, video identity, video title, caption and page information, and to seek playback when the user selects a transcript timestamp.
-- `sidePanel`: displays the transcript interface in Chrome's Side Panel.
-- YouTube-only host permissions: allow the extension to operate on `youtube.com` and `m.youtube.com` pages and retrieve YouTube-provided caption resources. The extension does not request broad `<all_urls>` access.
+- `scripting`: read video/track context, fetch captions in the page, maintain extension-private tab RAM, and seek playback.
+- `sidePanel`: display the transcript interface.
+- `webRequest`: observe YouTube timedtext request URLs without blocking or reading headers/body.
+- Hosts: `https://www.youtube.com/*`, `https://youtube.com/*`, `https://m.youtube.com/*`. No `<all_urls>`, cookies, debugger, storage or tabs permission is requested.
 
-## Purpose limitation and sharing
-
-Information accessed from YouTube is used only to provide Transcript Sidecar's disclosed, user-facing transcript feature. It is not sold, used for advertising, used to create a browsing or viewing profile, used to track the user, or used for an unrelated purpose. Tokumaru Labs does not receive or share this information through the extension, and no human at Tokumaru Labs reads it through the extension.
-
-Transcript Sidecar's use of information is limited to its disclosed single purpose and complies with the Chrome Web Store User Data Policy, including its Limited Use requirements.
-
-## Remote code
-
-The extension does not load or execute remotely hosted JavaScript or WebAssembly. Executable extension code is packaged with the extension. YouTube caption and transcript-panel responses are treated as data, not executable code.
-
-## Changes
-
-If a future version changes these data practices or adds optional cloud transcription, analytics, advertising, or other external data processing, this policy and the Chrome Web Store disclosures must be updated before that version is released.
+No remote runtime code is loaded. There is no developer backend, sale of user data, viewing profile or unrelated use of YouTube data. See [the source](https://github.com/naruo4/cc-sidecar) and [NOTICE.md](NOTICE.md) for implementation and upstream attribution.

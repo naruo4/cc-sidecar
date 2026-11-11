@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving Transcript Sidecar.
+Thanks for your interest in improving CC Sidecar.
 
 ## Principles
 
@@ -32,3 +32,5 @@ Before submitting a change, check JavaScript syntax and verify the main flows:
 - timestamp seek
 
 Please keep pull requests focused and explain any new permission request clearly.
+
+Run `node --test tests/*.test.mjs` and, with Chrome installed, `node tests/run-browser-diagnostics.mjs`. Keep observed signed URLs out of logs, storage and exports. Contributions for this fork target `naruo4/cc-sidecar`.

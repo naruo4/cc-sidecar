@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
-  "homepage_url": "https://github.com/tokumaru-labs/transcript-sidecar",
+  "homepage_url": "https://github.com/naruo4/cc-sidecar",
   "minimum_chrome_version": "116",
   "permissions": [
     "scripting",
-    "sidePanel"
+    "sidePanel",
+    "webRequest"
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
@@ -16,7 +17,8 @@
     "https://m.youtube.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_title": "__MSG_extensionActionTitle__"
@@ -30,5 +32,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "short_name": "__MSG_extensionShortName__"
+  "short_name": "__MSG_extensionShortName__",
+  "author": "naruo4"
 }

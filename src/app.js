@@ -1,3 +1,4 @@
+import { initializeCaptionDiagnosticUi } from './diagnostic-ui.js';
 import { loadCaptionTrack } from './captions.js';
 import { copyText, downloadTextFile, safeFilename } from './files.js';
 import { translate } from './i18n.js';
@@ -45,11 +46,16 @@ const ui = getUiElements();
 
 setupLanguageToggle();
 bindEvents();
+initializeCaptionDiagnosticUi(() => ({
+  videoIdentity: state.videoIdentity,
+  trackIdentity: state.tracks[state.selectedTrackIndex]?.trackIdentity || ''
+}));
 setActionButtonsDisabled(true);
 loadCurrentVideo();
 
 function bindEvents() {
   ui.refreshButton.addEventListener('click', loadCurrentVideo);
+  ui.loadCaptionsButton.addEventListener('click', () => loadSelectedTrack());
 
   ui.trackSelect.addEventListener('change', async () => {
     state.selectedTrackIndex = Number(ui.trackSelect.value);
@@ -167,12 +173,14 @@ async function loadCurrentVideo() {
 }
 
 async function loadSelectedTrack(loadGeneration = beginLoad(state)) {
+  ui.loadCaptionsButton.disabled = true;
   const selectedTrackIndex = state.selectedTrackIndex;
   const expectedVideoIdentity = state.videoIdentity;
   const track = state.tracks[state.selectedTrackIndex];
 
   if (!track?.baseUrl || !state.tabId || !expectedVideoIdentity) {
     setStatus({ key: 'error.trackLoadFailed' }, 'error', false);
+    ui.loadCaptionsButton.disabled = false;
     return;
   }
 
@@ -229,6 +237,7 @@ async function loadSelectedTrack(loadGeneration = beginLoad(state)) {
   } finally {
     if (isLoadCurrent(state, loadGeneration, selectedTrackIndex)) {
       setActionButtonsDisabled(state.cues.length === 0);
+      ui.loadCaptionsButton.disabled = false;
     }
   }
 }
