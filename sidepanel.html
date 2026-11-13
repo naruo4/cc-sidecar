@@ -15,7 +15,6 @@
           <h1>CC Sidecar</h1>
           <span class="privacy-badge">LOCAL</span>
         </div>
-        <p class="subtitle" data-i18n="app.tagline">YouTube字幕を、すぐコピー。</p>
       </div>
       <div class="header-actions">
         <div id="languageToggle" class="lang-toggle" role="group" data-i18n-aria-label="header.languageGroup" aria-label="表示言語">
@@ -29,15 +28,6 @@
     <section id="statusCard" class="status-card" aria-live="polite">
       <div id="statusSpinner" class="spinner" hidden></div>
       <p id="statusText" data-i18n="status.idle">YouTube動画を開いて、拡張機能アイコンを押してください。</p>
-    </section>
-
-    <section class="caption-diagnostic-card" aria-label="字幕取得診断">
-      <button id="runCaptionDiagnostics" class="secondary-button" type="button">字幕取得診断</button>
-      <p>動画ごとに診断し、比較TXTと詳細JSONを保存してください。全経路・0件の理由をまとめてLLMに渡せます。表示字幕はその瞬間のみ、DOMは開いている部分のみです。</p>
-      <p id="captionDiagnosticStatus" role="status" aria-live="polite"></p>
-      <button id="saveCaptionDiagnosticTxt" class="secondary-button" type="button" disabled>比較TXTを保存</button>
-      <button id="saveCaptionDiagnosticJson" class="secondary-button" type="button" disabled>詳細JSONを保存</button>
-      <div id="captionDiagnosticResults"></div>
     </section>
 
     <details id="diagnostics" class="diagnostics" hidden>
@@ -89,6 +79,15 @@
       <span class="publisher" data-i18n="footer.publisher">naruo4によるオープンソースツール。</span>
       <a class="publisher" href="https://github.com/tokumaru-labs/transcript-sidecar" target="_blank" rel="noreferrer" data-i18n="footer.upstream">原作：Transcript Sidecar（Tokumaru Labs）</a>
     </footer>
+
+    <section class="caption-diagnostic-card" aria-label="字幕取得診断">
+      <button id="runCaptionDiagnostics" class="secondary-button" type="button">字幕取得診断</button>
+      <p>動画ごとに診断し、比較TXTと詳細JSONを保存してください。全経路・0件の理由をまとめてLLMに渡せます。表示字幕はその瞬間のみ、DOMは開いている部分のみです。</p>
+      <p id="captionDiagnosticStatus" role="status" aria-live="polite"></p>
+      <button id="saveCaptionDiagnosticTxt" class="secondary-button" type="button" disabled>比較TXTを保存</button>
+      <button id="saveCaptionDiagnosticJson" class="secondary-button" type="button" disabled>詳細JSONを保存</button>
+      <div id="captionDiagnosticResults"></div>
+    </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
